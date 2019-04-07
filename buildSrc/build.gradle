@@ -1,0 +1,12 @@
+apply plugin: 'groovy'
+
+repositories {
+    google()
+    jcenter()
+
+}
+
+dependencies {
+    compileOnly gradleApi()
+    compileOnly localGroovy()
+}
