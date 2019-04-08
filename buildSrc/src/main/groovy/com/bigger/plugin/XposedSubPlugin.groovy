@@ -13,7 +13,7 @@ class XposedSubPlugin implements Plugin<Project> {
     void apply(Project project) {
 
         File adb = project.android.adbExecutable
-
+        File configTemp
         def subxposed = project.extensions.create("subxposed", XposedSubPluginExtension.class)
 
         def pluginUploadTask = project.task(type: Exec, 'uploadSubXposedModule') {
@@ -31,57 +31,73 @@ class XposedSubPlugin implements Plugin<Project> {
                 File apkFile = debug.outputs[0].outputFile
                 println "apk -> ${apkFile.path}"
                 commandLine adb.path, "push", apkFile.path, "${subxposed.destDir}/${subxposed.apkName}"
+                println "on execute cmd: ${commandLine.join(' ')}"
             }
             doLast {
-                println "result -> ${execResult.exitValue}"
                 if(!execResult.exitValue) {//success
-                    println "output -> ${output()}"
+                    println "push ${commandLine[2]} success -> ${output()}"
                 }
             }
         }
 
 
-        def configPushTask = project.task(type: Exec, "updateModuleJson") {
+        def configPushTask = project.task(type: Exec, "updateModuleJsonRemote") {
             group = 'xposed'
             description = 'push module.json file to mobile'
             ignoreExitValue true
             standardOutput = new ByteArrayOutputStream()
             doFirst {
-                commandLine adb.path, "push", "${temporaryDir.path}/modules.json", "${subxposed.destDir}/modules.json"
+                commandLine adb.path, "push", "${configTemp.path}", "${subxposed.destDir}/modules.json"
+                println "on execute cmd: ${commandLine.join(' ')}"
+            }
+
+            doLast {
+                if(!execResult.exitValue) {//success
+                    println "push ${commandLine[2]} success -> ${standardOutput.toString()}"
+                } else {
+                    println "push ${commandLine[2]} failed -> ${standardOutput.toString()}"
+                }
             }
         }
 
-        def configCheckTask = project.task(type: Exec, 'checkModuleJson') {
+        def configUpdateTask = project.task(type: Exec, 'updateModuleJsonLocal') {
             group = 'xposed'
             description = 'auto pull module.json file from mobile and check'
             ignoreExitValue true
             standardOutput = new ByteArrayOutputStream()
             doFirst {
                 commandLine adb.path, "pull", "${subxposed.destDir}/modules.json", "${temporaryDir.path}/modules.json"
+                println "on execute cmd: ${commandLine.join(' ')}"
             }
 
             doLast {
-                def jsonFile = new File("${temporaryDir.path}/modules.json")
-                if (jsonFile.exists()) {
-                    def configs = new JsonSlurper().parse(jsonFile)
+                configTemp= new File("${temporaryDir.path}/modules.json")
+                if (configTemp.exists()) {
+                    def configs = new JsonSlurper().parse(configTemp)
                     def config = configs.find { config ->
                         config.packageName == subxposed.packageName
                     }
-                    config.apkName = subxposed.apkName
-                    config.entryClass = subxposed.entryClass
                     if(config != null && (config.apkName != subxposed.apkName || config.entryClass != subxposed.entryClass)) {
                         config.apkName = subxposed.apkName
-                        config.entryClass != subxposed.entryClass
+                        config.entryClass = subxposed.entryClass
                         def jsonStr = JsonOutput.toJson(configs)
                         jsonFile.withWriter("utf-8") { writer ->
                             writer.write(jsonStr)
                         }
-                        configPushTask.execute()
+
+                    } else {
+                        def configInfo = [packageName: subxposed.packageName, apkName:subxposed.apkName, entryClass: subxposed.entryClass]
+                        configs.add(configInfo)
+                        def jsonStr = JsonOutput.toJson(configs)
+                        configTemp.withWriter("utf-8") { writer ->
+                            writer.write(jsonStr)
+                        }
                     }
+                    configPushTask.execute()
                 } else {
                     def configInfo = [packageName: subxposed.packageName, apkName:subxposed.apkName, entryClass: subxposed.entryClass]
                     def jsonStr = JsonOutput.toJson([configInfo])
-                    jsonFile.withWriter("utf-8") { writer ->
+                    configTemp.withWriter("utf-8") { writer ->
                         writer.write(jsonStr)
                     }
                     configPushTask.execute()
@@ -89,23 +105,54 @@ class XposedSubPlugin implements Plugin<Project> {
             }
         }
 
+        def unloadModuleTask = project.task(type: Exec, 'deleteModuleJsonLocal') {
+            group = 'xposed'
+            description = 'auto pull module.json file from mobile and remove this module'
+            ignoreExitValue true
+            standardOutput = new ByteArrayOutputStream()
+            doFirst {
+                commandLine adb.path, "pull", "${subxposed.destDir}/modules.json", "${temporaryDir.path}/modules.json"
+                println "on execute cmd: ${commandLine.join(' ')}"
+            }
+
+            doLast {
+                configTemp= new File("${temporaryDir.path}/modules.json")
+                if (configTemp.exists()) {
+                    def configs = new JsonSlurper().parse(configTemp)
+                    def config = configs.find { config ->
+                        config.packageName == subxposed.packageName
+                    }
+                    if(config != null && config.apkName == subxposed.apkName && config.entryClass == subxposed.entryClass) {
+                        configs.remove(config)
+                        def jsonStr = JsonOutput.toJson(configs)
+                        configTemp.withWriter("utf-8") { writer ->
+                            writer.write(jsonStr)
+                        }
+                        configPushTask.execute()
+                    }
+                }
+            }
+        }
+
         project.gradle.taskGraph.afterTask { Task task ->
             if(task.name == "assembleDebug") {
-                if(!subxposed.packageName) {
-                    throw new IllegalStateException("请配置subxposed 的 packageName")
-                }
-                if(!subxposed.entryClass) {
-                    throw new IllegalStateException("请配置subxposed 的 entryClass")
-                }
-                if(!subxposed.destDir) {
-                    subxposed.destDir = '/data/local/tmp/hook/'
-                }
-                if(!subxposed.apkName) {
-                    subxposed.apkName = "${project.name}.apk"
-                }
-                println "apkName -> ${subxposed.apkName}"
                 pluginUploadTask.execute()
-                configCheckTask.execute()
+                configUpdateTask.execute()
+            }
+        }
+
+        project.afterEvaluate {
+            if(!subxposed.packageName) {
+                throw new IllegalStateException("请配置subxposed 的 packageName")
+            }
+            if(!subxposed.entryClass) {
+                throw new IllegalStateException("请配置subxposed 的 entryClass")
+            }
+            if(!subxposed.destDir) {
+                subxposed.destDir = '/data/local/tmp/hook/'
+            }
+            if(!subxposed.apkName) {
+                subxposed.apkName = "${project.name}.apk"
             }
         }
     }

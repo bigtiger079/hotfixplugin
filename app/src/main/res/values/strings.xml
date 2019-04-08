@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">hotxposed</string>
+    <string name="module_desc">update xposed module without reboot</string>
 </resources>
