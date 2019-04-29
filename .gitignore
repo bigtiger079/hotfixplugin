@@ -1,5 +1,4 @@
 *.iml
-.gradle
 /local.properties
 .idea/*
 .idea/vcs.xml
@@ -7,4 +6,7 @@
 /build
 /captures
 .externalNativeBuild
+whatsapp/*
+storm/*
+modules.json
 
