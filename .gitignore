@@ -8,5 +8,6 @@
 .externalNativeBuild
 whatsapp/*
 storm/*
+pdj/*
 modules.json
 
