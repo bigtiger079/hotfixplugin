@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.jar.JarFile;
 
+import dalvik.system.DexClassLoader;
 import dalvik.system.PathClassLoader;
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XC_MethodReplacement;
@@ -32,6 +33,7 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage;
 public class Main {
 
     private static final String TAG = "PJDHooker";
+    private static boolean isTest = false;
 
     private static Map<String, String> vks = new HashMap<>();
     static {
@@ -99,8 +101,11 @@ public class Main {
     }
 
     public static void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam) throws Throwable {
-        Log.i(TAG, "on hook pjd -> 1.2");
-        Process.myPid();
+        Log.i(TAG, "on hook pjd -> 1.4");
+
+        if (Main.class.getDeclaredField("isTest").getType() == boolean.class) {
+            Log.i(TAG, "isTest  boolean");
+        }
 
         final Class<?> appClass = XposedHelpers.findClassIfExists("com.tencent.bugly.beta.tinker.TinkerPatchReflectApplication", lpparam.classLoader);
         if (appClass != null) {
@@ -144,13 +149,16 @@ public class Main {
                     }
                 });
 
-        XposedHelpers.findAndHookMethod(Runtime.class, "loadLibrary0",ClassLoader.class, String.class, new XC_MethodHook(){
-            @Override
-            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                super.afterHookedMethod(param);
-                Log.i(TAG, "on load library : " + param.args[1]);
-            }
-        });
+
+        XposedHelpers.findAndHookMethod("com.tencent.bugly.crashreport.crash.e", lpparam.classLoader, "uncaughtException",
+                Thread.class, Throwable.class, new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                        super.beforeHookedMethod(param);
+                        Log.d(TAG, "[crash.e] -> " + param.thisObject);
+                        printStack();
+                    }
+                });
 
         XposedHelpers.findAndHookMethod("com.jingdong.aura.core.util.h", lpparam.classLoader, "c",
                 String.class, String.class, new XC_MethodHook() {
@@ -190,11 +198,41 @@ public class Main {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                 super.afterHookedMethod(param);
-//                param.args[0] = ExceptionHandler.handler;
                 Log.i(TAG,"setDefaultUncaughtExceptionHandler -> " + param.args[0].toString());
                 printStack();
             }
         });
+
+        XposedHelpers.findAndHookMethod("com.jingdong.aura.core.b.a", lpparam.classLoader, "a", String.class, new XC_MethodHook() {
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                super.afterHookedMethod(param);
+                printStack();
+            }
+        });
+
+//        XposedHelpers.findAndHookMethod("com.jingdong.aura.wrapper.AuraInitializer", lpparam.classLoader,
+//                "setBundleSecurityVerifier", "com.jingdong.aura.wrapper.AuraInitializer$a", new XC_MethodHook() {
+//            @Override
+//            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+//                super.beforeHookedMethod(param);
+//                Log.d(TAG, "[setBundleSecurityVerifier]");
+//                Thread.UncaughtExceptionHandler handler = Thread.getDefaultUncaughtExceptionHandler();
+//                Log.d(TAG, "[current handler] -> " + handler.toString());
+//                Class<? extends Thread.UncaughtExceptionHandler> handlerClass = handler.getClass();
+//                Field[] fields = handlerClass.getDeclaredFields();
+//                Log.d(TAG, "[fields] -> " + fields.length);
+//                for (Field field : fields) {
+//                    Class<?> type = field.getType();
+//                    Log.d(TAG, "fieldType -> " + type.getName());
+//                    if (Thread.UncaughtExceptionHandler.class.isAssignableFrom(type)) {
+//                        field.setAccessible(true);
+//                        field.set(handler, ExceptionHandler.handler);
+//                        Log.d(TAG, "[reset field] -> " + type.getName());
+//                    }
+//                }
+//            }
+//        });
 
         XposedHelpers.findAndHookMethod("android.os.Process", lpparam.classLoader, "killProcess", int.class, new XC_MethodHook() {
             @Override
@@ -206,7 +244,7 @@ public class Main {
         });
 
 
-//        XposedHelpers.findAndHookMethod("")
+
 
         XposedHelpers.findAndHookMethod("com.jingdong.aura.core.b.a", lpparam.classLoader, "b", String.class, new XC_MethodHook() {
             @Override
@@ -234,13 +272,6 @@ public class Main {
 //            }
 //        });
 
-        XposedHelpers.findAndHookMethod("com.jingdong.aura.wrapper.c", lpparam.classLoader, "a", String.class, new XC_MethodHook() {
-            @Override
-            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                super.afterHookedMethod(param);
-                Log.d(TAG, "start post kill message");
-            }
-        });
 
         XposedHelpers.findAndHookMethod("com.jingdong.aura.wrapper.d", lpparam.classLoader, "run", new XC_MethodHook() {
             @Override
@@ -274,11 +305,13 @@ public class Main {
         });
 
         load(lpparam.classLoader);
+//        Class<? extends XC_LoadPackage.LoadPackageParam> aClass = lpparam.getClass();
+//        aClass.getFields();
 
     }
 
 
-    private static void load(ClassLoader classLoader) {
+    private static void load(final ClassLoader classLoader) {
         checkClassLoader(classLoader);
         Log.i(TAG, "parent ->" + classLoader.getParent());
         Class<?> appClass = XposedHelpers.findClass("net.wequick.example.small.NewApplication", classLoader);
@@ -288,7 +321,7 @@ public class Main {
                 super.afterHookedMethod(param);
                 Log.i(TAG, "NewApplication -> attachBaseContext");
                 //startCheck();
-
+                XposedHelpers.setStaticBooleanField(XposedHelpers.findClass("com.tencent.bugly.proguard.an", classLoader), "c", true);
             }
         });
 
@@ -321,22 +354,15 @@ public class Main {
         XposedHelpers.findAndHookMethod(logClass, "d", xc_methodHook);
         XposedHelpers.findAndHookMethod(logClass, "e", xc_methodHook);
 
-        XposedHelpers.findAndHookMethod("com.jingdong.aura.core.util.a.c", classLoader, "a",
-                Class.class, new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                        super.beforeHookedMethod(param);
-                        Log.d(TAG, "INIT LOG -> " + param.args[0]);
-                    }
-                });
+//        XposedHelpers.findAndHookMethod("com.jingdong.aura.core.util.a.c", classLoader, "a",
+//                Class.class, new XC_MethodHook() {
+//                    @Override
+//                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+//                        super.beforeHookedMethod(param);
+//                        Log.d(TAG, "INIT LOG -> " + param.args[0]);
+//                    }
+//                });
 
-//        XposedHelpers.findAndHookMethod("main.homenew.HomeMainFragment", classLoader, "getPlunginLists", new XC_MethodHook() {
-//            @Override
-//            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-//                super.afterHookedMethod(param);
-//                Log.d(TAG, "HomeMainFragment  getPluginLists");
-//            }
-//        });
     }
 
     private static void checkClassLoader(ClassLoader classLoader) {

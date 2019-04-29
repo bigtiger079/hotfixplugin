@@ -1,0 +1,70 @@
+import groovy.json.JsonSlurper
+
+task modulesCheck {
+    doFirst{
+        def configTemp= new File("modules.json")
+        if (configTemp.exists()) {
+            def configs = new JsonSlurper().parse(configTemp)
+            println "configs -> ${configs.size()} ${configs}"
+            if (configs.size() > 0) {
+                configs.forEach {
+                    def name = it.name
+                    def applicationId = it.applicationId
+                    def moduleDir = new File(name)
+                    if (moduleDir.exists() && moduleDir.isDirectory()) {
+                        println "add ${name}"
+                        println createModuleFromTemplate.getActions().size()
+//                        createModuleFromTemplate.setProperty("from", name)
+//                        println createModuleFromTemplate.property("from")
+                    }
+                }
+            }
+        }
+    }
+}
+
+def applicationId = "com.anscen.test"//owner.property​("applicationId")
+def moduleName = applicationId.split("\\.").last()
+
+task createModuleFromTemplate(type: Copy)
+
+createModuleFromTemplate.configure { owner ->
+    println "onConfigure---"
+
+    filesMatching("build.gradle") {
+        def gradleFile = it.getFile()
+        def content = []
+        gradleFile.withReader('UTF-8') { reader ->
+            reader.eachLine {
+                if (it.contains("{PACKAGE_NAME}")){
+                    def appId = it.replace("{PACKAGE_NAME}", applicationId)
+                    println appId
+                    content.add(appId + "\n")
+                } else {
+                    content.add(it + "\n")
+                }
+
+            }
+        }
+        gradleFile.withWriter('UTF-8') { writer ->
+            content.each {
+                writer.write(it)
+            }
+        }
+    }
+
+    from 'template'
+    exclude "build", "*.class", "*.iml", "src/main/java/*"
+    into moduleName
+    includeEmptyDirs = true
+    println owner.getProperties()
+}
+
+createModuleFromTemplate.doLast {
+//    def applicationId = createModuleFromTemplate.property​("applicationId")
+    mkdir "${moduleName}/src/main/java/${applicationId.replaceAll("\\.", "/")}"
+}
+
+task cleanTest(type: Delete) {
+    delete "test"
+}

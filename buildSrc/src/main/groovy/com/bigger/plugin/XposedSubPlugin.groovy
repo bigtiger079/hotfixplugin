@@ -74,17 +74,22 @@ class XposedSubPlugin implements Plugin<Project> {
                 configTemp= new File("${temporaryDir.path}/modules.json")
                 if (configTemp.exists()) {
                     def configs = new JsonSlurper().parse(configTemp)
+                    println "configs -> ${configs.size()}"
                     def config = configs.find { config ->
                         config.packageName == subxposed.packageName
                     }
-                    if(config != null && (config.apkName != subxposed.apkName || config.entryClass != subxposed.entryClass)) {
-                        config.apkName = subxposed.apkName
-                        config.entryClass = subxposed.entryClass
-                        def jsonStr = JsonOutput.toJson(configs)
-                        jsonFile.withWriter("utf-8") { writer ->
-                            writer.write(jsonStr)
+                    println "config -> ${config}"
+                    println "subxposed -> ${subxposed}"
+                    if(config != null) {
+                        if ((config.apkName != subxposed.apkName || config.entryClass != subxposed.entryClass)) {
+                            config.apkName = subxposed.apkName
+                            config.entryClass = subxposed.entryClass
+                            def jsonStr = JsonOutput.toJson(configs)
+                            println "configs -> ${configs.size()}"
+                            jsonFile.withWriter("utf-8") { writer ->
+                                writer.write(jsonStr)
+                            }
                         }
-
                     } else {
                         def configInfo = [packageName: subxposed.packageName, apkName:subxposed.apkName, entryClass: subxposed.entryClass]
                         configs.add(configInfo)
@@ -119,12 +124,16 @@ class XposedSubPlugin implements Plugin<Project> {
                 configTemp= new File("${temporaryDir.path}/modules.json")
                 if (configTemp.exists()) {
                     def configs = new JsonSlurper().parse(configTemp)
+                    println "configs -> ${configs.size()} ${configs}"
                     def config = configs.find { config ->
-                        config.packageName == subxposed.packageName
+                        config.packageName == subxposed.packageName && config.apkName == subxposed.apkName && config.entryClass == subxposed.entryClass
                     }
-                    if(config != null && config.apkName == subxposed.apkName && config.entryClass == subxposed.entryClass) {
+                    println "config -> ${config}"
+                    if(config != null) {
                         configs.remove(config)
+                        println "configs -> ${configs.size()}"
                         def jsonStr = JsonOutput.toJson(configs)
+                        println "jsonStr -> ${jsonStr}"
                         configTemp.withWriter("utf-8") { writer ->
                             writer.write(jsonStr)
                         }
