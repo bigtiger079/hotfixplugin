@@ -1,22 +1,19 @@
 import groovy.json.JsonSlurper
 
-include ':app', ":storm"
+include ':app'
+println "called from settings"
 
-apply {
-    println "called from settings"
-
-    def configTemp= new File("modules.json")
-    if (configTemp.exists()) {
-        def configs = new JsonSlurper().parse(configTemp)
-        println "configs -> ${configs.size()} ${configs}"
-        if (configs.size() > 0) {
-            configs.forEach {
-                def name = it.name
-                def moduleDir = new File(name)
-                if (moduleDir.exists() && moduleDir.isDirectory()) {
-                    include(name)
-                }
-            }
-        }
-    }
-}
+//def configTemp= new File("modules.json")
+//if (configTemp.exists()) {
+//    def configs = new JsonSlurper().parse(configTemp)
+//    println "configs -> ${configs.size()} ${configs}"
+//    if (configs.size() > 0) {
+//        configs.forEach {
+//            def name = it.name
+//            def moduleDir = new File(name)
+//            if (moduleDir.exists() && moduleDir.isDirectory()) {
+//                include(name)
+//            }
+//        }
+//    }
+//}
