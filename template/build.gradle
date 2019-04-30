@@ -6,7 +6,7 @@ android {
 
 
     defaultConfig {
-        applicationId "com.anscen.test"
+applicationId "com.bigger.test"
         minSdkVersion 15
         targetSdkVersion 28
         versionCode 1
@@ -26,9 +26,9 @@ android {
 }
 
 subxposed {
-    packageName ''
+    packageName 'com.bigger.test'
     entryClass ''
-    apkName ''
+    apkName '{MODULE_NAME}'
 }
 
 
