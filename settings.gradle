@@ -1,7 +1,6 @@
 import groovy.json.JsonSlurper
 
-include ':app'
-println "called from settings"
+include ':app', ":storm"
 
 def configTemp= new File("modules.json")
 if (configTemp.exists()) {

@@ -16,10 +16,11 @@ class XposedSubPlugin implements Plugin<Project> {
         File configTemp
         def subxposed = project.extensions.create("subxposed", XposedSubPluginExtension.class)
 
-        def pluginUploadTask = project.task(type: Exec, 'uploadSubXposedModule') {
+        project.task(type: Exec, 'uploadSubXposedModule') {
+            mustRunAfter = ["assembleDebug"]
             group = 'xposed'
             description = 'auto push xposed hot module to android mobile by adb'
-            ignoreExitValue true
+            ignoreExitValue = true
             standardOutput = new ByteArrayOutputStream()
 
             ext.output = {
@@ -27,8 +28,10 @@ class XposedSubPlugin implements Plugin<Project> {
             }
 
             doFirst {
+                println "on Start Task -> uploadSubXposedModule"
                 def debug = project.android.applicationVariants.find{ variants -> variants.name == "debug" }
-                File apkFile = debug.outputs[0].outputFile
+                def  debugTask = debug.packageApplicationProvider.get()
+                File apkFile = new File(debugTask.outputDirectory, debugTask.apkNames[0])
                 println "apk -> ${apkFile.path}"
                 commandLine adb.path, "push", apkFile.path, "${subxposed.destDir}/${subxposed.apkName}"
                 println "on execute cmd: ${commandLine.join(' ')}"
@@ -40,29 +43,10 @@ class XposedSubPlugin implements Plugin<Project> {
             }
         }
 
-
-        def configPushTask = project.task(type: Exec, "updateModuleJsonRemote") {
-            group = 'xposed'
-            description = 'push module.json file to mobile'
-            ignoreExitValue true
-            standardOutput = new ByteArrayOutputStream()
-            doFirst {
-                commandLine adb.path, "push", "${configTemp.path}", "${subxposed.destDir}/modules.json"
-                println "on execute cmd: ${commandLine.join(' ')}"
-            }
-
-            doLast {
-                if(!execResult.exitValue) {//success
-                    println "push ${commandLine[2]} success -> ${standardOutput.toString()}"
-                } else {
-                    println "push ${commandLine[2]} failed -> ${standardOutput.toString()}"
-                }
-            }
-        }
-
-        def configUpdateTask = project.task(type: Exec, 'updateModuleJsonLocal') {
+        project.task(type: Exec, 'syncModulesConfigFromRemote') {
             group = 'xposed'
             description = 'auto pull module.json file from mobile and check'
+            mustRunAfter = ['uploadSubXposedModule']
             ignoreExitValue true
             standardOutput = new ByteArrayOutputStream()
             doFirst {
@@ -98,19 +82,19 @@ class XposedSubPlugin implements Plugin<Project> {
                             writer.write(jsonStr)
                         }
                     }
-                    configPushTask.execute()
+
                 } else {
                     def configInfo = [packageName: subxposed.packageName, apkName:subxposed.apkName, entryClass: subxposed.entryClass]
                     def jsonStr = JsonOutput.toJson([configInfo])
                     configTemp.withWriter("utf-8") { writer ->
                         writer.write(jsonStr)
                     }
-                    configPushTask.execute()
+//                    configPushTask.execute()
                 }
             }
         }
 
-        def unloadModuleTask = project.task(type: Exec, 'deleteModuleJsonLocal') {
+        def unloadModuleTask = project.task(type: Exec, 'unloadModuleOfRemote') {
             group = 'xposed'
             description = 'auto pull module.json file from mobile and remove this module'
             ignoreExitValue true
@@ -137,16 +121,47 @@ class XposedSubPlugin implements Plugin<Project> {
                         configTemp.withWriter("utf-8") { writer ->
                             writer.write(jsonStr)
                         }
-                        configPushTask.execute()
+//                        configPushTask.execute()
                     }
                 }
             }
         }
 
+        project.task(type: Exec, "updateRemoteModulesConfig") {
+            group = 'xposed'
+            description = 'push module.json file to mobile'
+            ignoreExitValue true
+            mustRunAfter = ['syncModulesConfigFromRemote', 'unloadModuleOfRemote']
+            standardOutput = new ByteArrayOutputStream()
+            doFirst {
+                commandLine adb.path, "push", "${configTemp.path}", "${subxposed.destDir}/modules.json"
+                println "on execute cmd: ${commandLine.join(' ')}"
+            }
+
+            doLast {
+                if(!execResult.exitValue) {//success
+                    println "push ${commandLine[2]} success -> ${standardOutput.toString()}"
+                } else {
+                    println "push ${commandLine[2]} failed -> ${standardOutput.toString()}"
+                }
+            }
+        }
+
+//        pluginUploadTask.dependsOn project.tasks.named("build")
+//        syncModulesConfigFromRemoteTask.dependsOn pluginUploadTask
+//        configPushTask.dependsOn syncModulesConfigFromRemoteTask
+//        configPushTask.dependsOn unloadModuleTask
+//
+//
+//        pluginUploadTask.mustRunAfter project.tasks.named("build")
+//        syncModulesConfigFromRemoteTask.mustRunAfter pluginUploadTask
+//        configPushTask.mustRunAfter syncModulesConfigFromRemoteTask, unloadModuleTask
+
         project.gradle.taskGraph.afterTask { Task task ->
             if(task.name == "assembleDebug") {
-                pluginUploadTask.execute()
-                configUpdateTask.execute()
+                println "After Task: ${task.name}"
+                println project.tasks.named('uploadSubXposedModule').getOrNull().mustRunAfter.getDependencies(project.tasks.named('uploadSubXposedModule').getOrNull())
+
             }
         }
 
