@@ -1,5 +1,8 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
-apply from: "gradle/plugin.gradle"
+//apply from: "gradle/plugin.gradle"
+
+//apply plugin: com.bigger.plugin.ModuleCreateTask
+
 buildscript {
     repositories {
         google()
@@ -14,6 +17,8 @@ buildscript {
     }
 }
 
+
+
 allprojects {
     repositories {
         google()
@@ -22,6 +27,13 @@ allprojects {
         
     }
 }
+
+task create(type: ModuleCreateTask) {}
+tasks.forEach {
+    println it.name
+}
+
+tasks.named('init').get().dependsOn create
 
 task clean(type: Delete) {
     delete rootProject.buildDir

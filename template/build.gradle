@@ -4,9 +4,8 @@ apply plugin: com.bigger.plugin.XposedSubPlugin
 android {
     compileSdkVersion 28
 
-
     defaultConfig {
-applicationId "com.bigger.test"
+        applicationId "${applicationId}"
         minSdkVersion 15
         targetSdkVersion 28
         versionCode 1
@@ -25,12 +24,12 @@ applicationId "com.bigger.test"
 
 }
 
-subxposed {
-    packageName 'com.bigger.test'
-    entryClass ''
-    apkName '{MODULE_NAME}'
+xposed {
+    packageName  "${packageName}"
+    //todo: add entry class
+    entryClass ""
+    apkName "${moduleName}.apk"
 }
-
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])

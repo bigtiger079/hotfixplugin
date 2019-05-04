@@ -1,48 +1,26 @@
 import groovy.json.JsonSlurper
 
 def ModulesConfig = copySpec{
-    filesMatching("build.gradle") {
-        println it.properties
-        def gradleFile = it.getFile()
-        def content = []
-        def applicationId = "com.bigger.test"
-        println gradleFile.path
-        gradleFile.withReader('UTF-8') { reader ->
-            reader.eachLine {
-                println it
-                if (it ==~ "\\s*?applicationId\\s+?\".*?\".*"){
-                    def appId = "applicationId \"${applicationId}\""
-                    println appId
-                    content.add(appId + "\n")
-                } else {
-                    content.add(it + "\n")
-                }
-            }
-        }
-        gradleFile.withWriter('UTF-8') { writer ->
-            content.each {
-                writer.write(it)
-            }
-        }
-    }
     includeEmptyDirs = true
     from 'template'
     exclude "build", "*.class", "*.iml", "src/main/java/*"
 }
 
 task ModulesCtreation {
-    def modulesConfig = []
+    ext.modulesConfig = []
     doFirst {
         def configTemp= new File("modules.json")
         if (configTemp.exists()) {
             def configs = new JsonSlurper().parse(configTemp)
             if (configs.size() > 0) {
                 configs.forEach {
-                    def name = it.name
+                    def name = it.moduleName
                     def moduleDir = new File(name)
                     if (!moduleDir.exists() | !moduleDir.isDirectory()) {
                         modulesConfig.add(it)
+                        def binding = [applicationId:it.applicationId, packageName:it.packageName, apkName:name+".apk"]
                         copy {
+                            expand binding
                             with ModulesConfig
                             into name
                         }
@@ -56,7 +34,7 @@ task ModulesCtreation {
         println modulesConfig
         if (!modulesConfig.isEmpty()) {
             modulesConfig.forEach{
-                mkdir "${it.name}/src/main/java/${it.applicationId.replaceAll('\\.', '/')}"
+                mkdir "${it.moduleName}/src/main/java/${it.applicationId.replaceAll('\\.', '/')}"
             }
         }
     }

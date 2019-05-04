@@ -4,138 +4,169 @@ import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import org.gradle.api.Plugin
 import org.gradle.api.Project
-import org.gradle.api.Task
 import org.gradle.api.tasks.Exec
-
 
 class XposedSubPlugin implements Plugin<Project> {
 
     void apply(Project project) {
-
         File adb = project.android.adbExecutable
-        File configTemp
-        def subxposed = project.extensions.create("subxposed", XposedSubPluginExtension.class)
 
-        project.task(type: Exec, 'uploadSubXposedModule') {
-            mustRunAfter = ["assembleDebug"]
+        def xposed = project.extensions.create("xposed", XposedModuleExtension.class)
+
+        project.tasks.register("addModuleToRemote") {
+            group = 'xposed'
+            description = 'add this module(apk) to mobile'
+            mustRunAfter 'packageDebug'
+            dependsOn 'uploadSubXposedModule', "updateRemoteModulesConfig"
+            doFirst {
+                println "start Task -> addModuleToRemote"
+            }
+            onlyIf {
+                !xposed.disabled
+            }
+        }
+
+        project.tasks.register('uploadSubXposedModule',  Exec) {
             group = 'xposed'
             description = 'auto push xposed hot module to android mobile by adb'
             ignoreExitValue = true
             standardOutput = new ByteArrayOutputStream()
-
             ext.output = {
                 return standardOutput.toString()
             }
+            ext.isApkExist = false
 
             doFirst {
-                println "on Start Task -> uploadSubXposedModule"
+                println "start Task -> uploadSubXposedModule"
                 def debug = project.android.applicationVariants.find{ variants -> variants.name == "debug" }
                 def  debugTask = debug.packageApplicationProvider.get()
                 File apkFile = new File(debugTask.outputDirectory, debugTask.apkNames[0])
                 println "apk -> ${apkFile.path}"
-                commandLine adb.path, "push", apkFile.path, "${subxposed.destDir}/${subxposed.apkName}"
+                isApkExist = apkFile.exists()
+                commandLine adb.path, "push", apkFile.path, "${xposed.destDir}/${xposed.apkName}"
                 println "on execute cmd: ${commandLine.join(' ')}"
             }
             doLast {
-                if(!execResult.exitValue) {//success
+                if(isApkExist && !execResult.exitValue) {//success
                     println "push ${commandLine[2]} success -> ${output()}"
                 }
             }
+            onlyIf {
+                !xposed.disabled
+            }
         }
 
-        project.task(type: Exec, 'syncModulesConfigFromRemote') {
+        project.tasks.register('syncModulesConfigFromRemote',Exec) {
             group = 'xposed'
             description = 'auto pull module.json file from mobile and check'
-            mustRunAfter = ['uploadSubXposedModule']
             ignoreExitValue true
             standardOutput = new ByteArrayOutputStream()
+            mustRunAfter "uploadSubXposedModule"
             doFirst {
-                commandLine adb.path, "pull", "${subxposed.destDir}/modules.json", "${temporaryDir.path}/modules.json"
+                commandLine adb.path, "pull", "${xposed.destDir}/modules.json", "${temporaryDir.path}/modules.json"
                 println "on execute cmd: ${commandLine.join(' ')}"
             }
+            onlyIf {
+                !xposed.disabled
+            }
+        }
 
-            doLast {
-                configTemp= new File("${temporaryDir.path}/modules.json")
-                if (configTemp.exists()) {
-                    def configs = new JsonSlurper().parse(configTemp)
-                    println "configs -> ${configs.size()}"
+        project.tasks.register('addModuleInfoToConfig') {
+            group = 'xposed'
+            description = 'add info of this module to config file'
+            dependsOn 'syncModulesConfigFromRemote'
+            doFirst {
+                def syncTask = project.tasks.named('syncModulesConfigFromRemote').get()
+                def configFile= new File("${syncTask.temporaryDir.path}/modules.json")
+                def configs = null
+                def write = {
+                    if (configs != null) {
+                        def jsonStr = JsonOutput.toJson(configs)
+                        configFile.withWriter("utf-8") { writer ->
+                            writer.write(jsonStr)
+                        }
+                    }
+                }
+                if (configFile.exists()) {
+                    configs = new JsonSlurper().parse(configFile)
+                    println "configs -> ${configs}"
                     def config = configs.find { config ->
-                        config.packageName == subxposed.packageName
+                        config.packageName == xposed.packageName
                     }
                     println "config -> ${config}"
-                    println "subxposed -> ${subxposed}"
                     if(config != null) {
-                        if ((config.apkName != subxposed.apkName || config.entryClass != subxposed.entryClass)) {
-                            config.apkName = subxposed.apkName
-                            config.entryClass = subxposed.entryClass
-                            def jsonStr = JsonOutput.toJson(configs)
-                            println "configs -> ${configs.size()}"
-                            jsonFile.withWriter("utf-8") { writer ->
-                                writer.write(jsonStr)
-                            }
+                        if ((config.apkName != xposed.apkName || config.entryClass != xposed.entryClass)) {
+                            config.apkName = xposed.apkName
+                            config.entryClass = xposed.entryClass
+                            write.call()
                         }
                     } else {
-                        def configInfo = [packageName: subxposed.packageName, apkName:subxposed.apkName, entryClass: subxposed.entryClass]
+                        def configInfo = [packageName: xposed.packageName, apkName:xposed.apkName, entryClass: xposed.entryClass]
                         configs.add(configInfo)
-                        def jsonStr = JsonOutput.toJson(configs)
-                        configTemp.withWriter("utf-8") { writer ->
-                            writer.write(jsonStr)
-                        }
+                        write.call()
                     }
-
                 } else {
-                    def configInfo = [packageName: subxposed.packageName, apkName:subxposed.apkName, entryClass: subxposed.entryClass]
-                    def jsonStr = JsonOutput.toJson([configInfo])
-                    configTemp.withWriter("utf-8") { writer ->
-                        writer.write(jsonStr)
-                    }
-//                    configPushTask.execute()
+                    configFile.createNewFile()
+                    def configInfo = [packageName: xposed.packageName, apkName:xposed.apkName, entryClass: xposed.entryClass]
+                    configs = [configInfo]
+                    write.call()
                 }
+            }
+            onlyIf {
+                !xposed.disabled
             }
         }
 
-        def unloadModuleTask = project.task(type: Exec, 'unloadModuleOfRemote') {
+        project.tasks.register('removeModuleInfoFromConfig') {
             group = 'xposed'
-            description = 'auto pull module.json file from mobile and remove this module'
-            ignoreExitValue true
-            standardOutput = new ByteArrayOutputStream()
-            doFirst {
-                commandLine adb.path, "pull", "${subxposed.destDir}/modules.json", "${temporaryDir.path}/modules.json"
-                println "on execute cmd: ${commandLine.join(' ')}"
-            }
+            description = 'remove the info of this module from config file'
+            dependsOn 'syncModulesConfigFromRemote'
 
-            doLast {
-                configTemp= new File("${temporaryDir.path}/modules.json")
-                if (configTemp.exists()) {
-                    def configs = new JsonSlurper().parse(configTemp)
-                    println "configs -> ${configs.size()} ${configs}"
+            doFirst {
+                def syncTask = project.tasks.named('syncModulesConfigFromRemote').get()
+                def configFile= new File("${syncTask.temporaryDir.path}/modules.json")
+                if (configFile.exists()) {
+                    def configs = new JsonSlurper().parse(configFile)
+                    println "configs -> ${configs}"
                     def config = configs.find { config ->
-                        config.packageName == subxposed.packageName && config.apkName == subxposed.apkName && config.entryClass == subxposed.entryClass
+                        config.packageName == xposed.packageName && config.apkName == xposed.apkName && config.entryClass == xposed.entryClass
                     }
-                    println "config -> ${config}"
                     if(config != null) {
                         configs.remove(config)
-                        println "configs -> ${configs.size()}"
                         def jsonStr = JsonOutput.toJson(configs)
                         println "jsonStr -> ${jsonStr}"
-                        configTemp.withWriter("utf-8") { writer ->
+                        configFile.withWriter("utf-8") { writer ->
                             writer.write(jsonStr)
                         }
-//                        configPushTask.execute()
                     }
                 }
             }
+            onlyIf {
+                !xposed.disabled
+            }
         }
 
-        project.task(type: Exec, "updateRemoteModulesConfig") {
+        project.tasks.register('unloadModuleOfRemote') {
+            group  'xposed'
+            description  'auto pull module.json file from mobile and remove this module'
+            dependsOn 'removeModuleInfoFromConfig', 'updateRemoteModulesConfig'
+        }
+
+        project.tasks.register("updateRemoteModulesConfig", Exec) {
             group = 'xposed'
             description = 'push module.json file to mobile'
             ignoreExitValue true
-            mustRunAfter = ['syncModulesConfigFromRemote', 'unloadModuleOfRemote']
+            mustRunAfter 'addModuleInfoToConfig', 'removeModuleInfoFromConfig'
             standardOutput = new ByteArrayOutputStream()
+            ext
             doFirst {
-                commandLine adb.path, "push", "${configTemp.path}", "${subxposed.destDir}/modules.json"
-                println "on execute cmd: ${commandLine.join(' ')}"
+                def syncTask = project.tasks.named('syncModulesConfigFromRemote').get()
+                def configFile= new File("${syncTask.temporaryDir.path}/modules.json")
+                if (configFile.exists()){
+                    commandLine adb.path, "push", "${configFile.path}", "${xposed.destDir}/modules.json"
+                } else {
+                    commandLine 'echo', "${configFile.path} is not exist"
+                }
             }
 
             doLast {
@@ -145,46 +176,39 @@ class XposedSubPlugin implements Plugin<Project> {
                     println "push ${commandLine[2]} failed -> ${standardOutput.toString()}"
                 }
             }
-        }
-
-//        pluginUploadTask.dependsOn project.tasks.named("build")
-//        syncModulesConfigFromRemoteTask.dependsOn pluginUploadTask
-//        configPushTask.dependsOn syncModulesConfigFromRemoteTask
-//        configPushTask.dependsOn unloadModuleTask
-//
-//
-//        pluginUploadTask.mustRunAfter project.tasks.named("build")
-//        syncModulesConfigFromRemoteTask.mustRunAfter pluginUploadTask
-//        configPushTask.mustRunAfter syncModulesConfigFromRemoteTask, unloadModuleTask
-
-        project.gradle.taskGraph.afterTask { Task task ->
-            if(task.name == "assembleDebug") {
-                println "After Task: ${task.name}"
-                println project.tasks.named('uploadSubXposedModule').getOrNull().mustRunAfter.getDependencies(project.tasks.named('uploadSubXposedModule').getOrNull())
-
+            onlyIf {
+                !xposed.disabled
             }
         }
-
+        // BUG: :processDebugAndroidTestManifest -> ERROR: No value has been specified for property 'manifestOutputDirectory'.
+//        project.getTasks().whenTaskAdded{ Task task ->
+//            if (task.name == "assembleDebug") {
+//                task.dependsOn "addModuleToRemote", "addModuleInfoToConfig", "updateRemoteModulesConfig"
+//            }
+//        }
         project.afterEvaluate {
-            if(!subxposed.packageName) {
-                throw new IllegalStateException("请配置subxposed 的 packageName")
-            }
-            if(!subxposed.entryClass) {
-                throw new IllegalStateException("请配置subxposed 的 entryClass")
-            }
-            if(!subxposed.destDir) {
-                subxposed.destDir = '/data/local/tmp/hook/'
-            }
-            if(!subxposed.apkName) {
-                subxposed.apkName = "${project.name}.apk"
+            if (!xposed.disabled) {
+                if(!xposed.packageName) {
+                    throw new IllegalStateException("请配置subxposed 的 packageName")
+                }
+//                if(!xposed.entryClass) {
+//                    throw new IllegalStateException("请配置subxposed 的 entryClass")
+//                }
+                if(!xposed.destDir) {
+                    xposed.destDir = '/data/local/tmp/hook/'
+                }
+                if(!xposed.apkName) {
+                    xposed.apkName = "${project.name}.apk"
+                }
             }
         }
     }
 }
 
-class XposedSubPluginExtension {
+class XposedModuleExtension {
     String destDir
     String packageName
     String apkName
     String entryClass
+    boolean disabled = false
 }
