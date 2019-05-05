@@ -29,19 +29,28 @@ class ModuleCreateTask extends DefaultTask {
         if (configTemp.exists()) {
             def configs = new JsonSlurper().parse(configTemp)
             if (configs.size() > 0) {
-                configs.forEach {
-                    def name = it.moduleName
-                    def moduleDir = new File(name)
+                configs.forEach { config ->
+                    def moduleDir = new File(config.moduleName)
                     if (!moduleDir.exists() | !moduleDir.isDirectory()) {
-                        def binding = [applicationId:it.applicationId, packageName:it.packageName, apkName:"${it.moduleName}.apk"]
+                        def binding = [
+                                applicationId: config.applicationId,
+                                packageName: config.packageName,
+                                entryClass: "${config.applicationId}.ModuleEntry",
+                                apkName: "${config.moduleName}.apk"
+                        ]
                         project.copy {
                             expand binding
                             with modulesConfig
-                            into name
+                            into config.moduleName
                         }
-                        workerExecutor.submit(TemplateCopy.class) { WorkerConfiguration config ->
-                            config.isolationMode = IsolationMode.NONE
-                            config.params project, it.applicationId, it.packageName, it.moduleName
+                        project.copy {
+                            expand binding
+                            from 'template/src/main/java/com/bigger/template/ModuleEntry.java'
+                            into "${config.moduleName}/src/main/java/${config.applicationId.replaceAll('\\.', '/')}/"
+                        }
+                        workerExecutor.submit(ModuleSrcMake.class) { WorkerConfiguration workerConfiguration ->
+                            workerConfiguration.isolationMode = IsolationMode.NONE
+                            workerConfiguration.params config.applicationId, config.moduleName
                         }
                     }
                 }

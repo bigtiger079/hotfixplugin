@@ -26,9 +26,8 @@ android {
 
 xposed {
     packageName  "${packageName}"
-    //todo: add entry class
-    entryClass ""
-    apkName "${moduleName}.apk"
+    entryClass "${entryClass}"
+    apkName "${apkName}"
 }
 
 dependencies {

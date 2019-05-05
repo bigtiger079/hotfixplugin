@@ -16,19 +16,20 @@ class XposedSubPlugin implements Plugin<Project> {
         project.tasks.register("addModuleToRemote") {
             group = 'xposed'
             description = 'add this module(apk) to mobile'
-            mustRunAfter 'packageDebug'
+            mustRunAfter 'packageDebug', 'packageRelease'
             dependsOn 'uploadSubXposedModule', "updateRemoteModulesConfig"
             doFirst {
                 println "start Task -> addModuleToRemote"
             }
-            onlyIf {
-                !xposed.disabled
-            }
+//            onlyIf {
+//                !xposed.disabled
+//            }
         }
 
         project.tasks.register('uploadSubXposedModule',  Exec) {
             group = 'xposed'
             description = 'auto push xposed hot module to android mobile by adb'
+            mustRunAfter 'packageDebug', 'packageRelease'
             ignoreExitValue = true
             standardOutput = new ByteArrayOutputStream()
             ext.output = {
@@ -51,9 +52,9 @@ class XposedSubPlugin implements Plugin<Project> {
                     println "push ${commandLine[2]} success -> ${output()}"
                 }
             }
-            onlyIf {
-                !xposed.disabled
-            }
+//            onlyIf {
+//                !xposed.disabled
+//            }
         }
 
         project.tasks.register('syncModulesConfigFromRemote',Exec) {
@@ -66,9 +67,9 @@ class XposedSubPlugin implements Plugin<Project> {
                 commandLine adb.path, "pull", "${xposed.destDir}/modules.json", "${temporaryDir.path}/modules.json"
                 println "on execute cmd: ${commandLine.join(' ')}"
             }
-            onlyIf {
-                !xposed.disabled
-            }
+//            onlyIf {
+//                !xposed.disabled
+//            }
         }
 
         project.tasks.register('addModuleInfoToConfig') {
@@ -112,9 +113,9 @@ class XposedSubPlugin implements Plugin<Project> {
                     write.call()
                 }
             }
-            onlyIf {
-                !xposed.disabled
-            }
+//            onlyIf {
+//                !xposed.disabled
+//            }
         }
 
         project.tasks.register('removeModuleInfoFromConfig') {
@@ -141,9 +142,9 @@ class XposedSubPlugin implements Plugin<Project> {
                     }
                 }
             }
-            onlyIf {
-                !xposed.disabled
-            }
+//            onlyIf {
+//                !xposed.disabled
+//            }
         }
 
         project.tasks.register('unloadModuleOfRemote') {
@@ -158,7 +159,6 @@ class XposedSubPlugin implements Plugin<Project> {
             ignoreExitValue true
             mustRunAfter 'addModuleInfoToConfig', 'removeModuleInfoFromConfig'
             standardOutput = new ByteArrayOutputStream()
-            ext
             doFirst {
                 def syncTask = project.tasks.named('syncModulesConfigFromRemote').get()
                 def configFile= new File("${syncTask.temporaryDir.path}/modules.json")
@@ -176,9 +176,9 @@ class XposedSubPlugin implements Plugin<Project> {
                     println "push ${commandLine[2]} failed -> ${standardOutput.toString()}"
                 }
             }
-            onlyIf {
-                !xposed.disabled
-            }
+//            onlyIf {
+//                !xposed.disabled
+//            }
         }
         // BUG: :processDebugAndroidTestManifest -> ERROR: No value has been specified for property 'manifestOutputDirectory'.
 //        project.getTasks().whenTaskAdded{ Task task ->
@@ -186,14 +186,14 @@ class XposedSubPlugin implements Plugin<Project> {
 //                task.dependsOn "addModuleToRemote", "addModuleInfoToConfig", "updateRemoteModulesConfig"
 //            }
 //        }
+
+        project.tasks.named("assemble").get().dependsOn "addModuleToRemote", "addModuleInfoToConfig", "updateRemoteModulesConfig"
+
         project.afterEvaluate {
             if (!xposed.disabled) {
                 if(!xposed.packageName) {
                     throw new IllegalStateException("请配置subxposed 的 packageName")
                 }
-//                if(!xposed.entryClass) {
-//                    throw new IllegalStateException("请配置subxposed 的 entryClass")
-//                }
                 if(!xposed.destDir) {
                     xposed.destDir = '/data/local/tmp/hook/'
                 }

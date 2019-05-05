@@ -13,16 +13,19 @@ task ModulesCtreation {
         if (configTemp.exists()) {
             def configs = new JsonSlurper().parse(configTemp)
             if (configs.size() > 0) {
-                configs.forEach {
-                    def name = it.moduleName
-                    def moduleDir = new File(name)
+                configs.forEach { config ->
+                    def moduleDir = new File(config.moduleName)
                     if (!moduleDir.exists() | !moduleDir.isDirectory()) {
-                        modulesConfig.add(it)
-                        def binding = [applicationId:it.applicationId, packageName:it.packageName, apkName:name+".apk"]
+                        modulesConfig.add(config)
+                        def binding = [
+                                "applicationId": config.applicationId,
+                                "packageName": config.packageName,
+                                "apkName": "${config.moduleName}.apk"
+                        ]
                         copy {
                             expand binding
                             with ModulesConfig
-                            into name
+                            into config.moduleName
                         }
                     }
                 }

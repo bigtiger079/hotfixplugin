@@ -28,12 +28,8 @@ allprojects {
     }
 }
 
-task create(type: ModuleCreateTask) {}
-tasks.forEach {
-    println it.name
-}
+task moduleCheck(type: ModuleCreateTask)
 
-tasks.named('init').get().dependsOn create
 
 task clean(type: Delete) {
     delete rootProject.buildDir
