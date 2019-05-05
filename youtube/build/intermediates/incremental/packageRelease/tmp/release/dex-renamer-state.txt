@@ -1,4 +1,0 @@
-#Sun May 05 17:09:34 CST 2019
-base.0=E\:\\WorkStation\\android\\bigtiger\\hotfixplugin\\youtube\\build\\intermediates\\dex\\release\\mergeDexRelease\\out
-path.0=classes.dex
-renamed.0=classes.dex
