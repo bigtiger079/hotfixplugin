@@ -3,7 +3,7 @@ import groovy.json.JsonSlurper
 def ModulesConfig = copySpec{
     includeEmptyDirs = true
     from 'template'
-    exclude "build", "*.class", "*.iml", "src/main/java/*"
+    exclude "build", "*.class", "*.java", "*.iml"
 }
 
 task ModulesCtreation {
@@ -17,16 +17,7 @@ task ModulesCtreation {
                     def moduleDir = new File(config.moduleName)
                     if (!moduleDir.exists() | !moduleDir.isDirectory()) {
                         modulesConfig.add(config)
-                        def binding = [
-                                "applicationId": config.applicationId,
-                                "packageName": config.packageName,
-                                "apkName": "${config.moduleName}.apk"
-                        ]
-                        copy {
-                            expand binding
-                            with ModulesConfig
-                            into config.moduleName
-                        }
+                        mkdir "${config.moduleName}/src/main/java/${config.applicationId.replaceAll('\\.', '/')}"
                     }
                 }
             }
@@ -36,8 +27,24 @@ task ModulesCtreation {
     doLast{
         println modulesConfig
         if (!modulesConfig.isEmpty()) {
-            modulesConfig.forEach{
-                mkdir "${it.moduleName}/src/main/java/${it.applicationId.replaceAll('\\.', '/')}"
+            modulesConfig.forEach{ config->
+                def binding = [
+                        "applicationId": config.applicationId,
+                        "packageName": config.packageName,
+                        "apkName": "${config.moduleName}.apk",
+                        "entryClass":"${config.applicationId}.ModuleEntry"
+                ]
+                copy {
+                    expand binding
+                    with ModulesConfig
+                    into config.moduleName
+                }
+
+                copy {
+                    expand binding
+                    from 'template/src/main/java/com/bigger/template/ModuleEntry.java'
+                    into "${config.moduleName}/src/main/java/${config.applicationId.replaceAll('\\.', '/')}"
+                }
             }
         }
     }

@@ -1,3 +1,4 @@
+package com.bigger.plugin.creation
 import javax.inject.Inject
 
 class ModuleSrcMake implements Runnable {

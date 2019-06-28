@@ -1,5 +1,6 @@
 package com.bigger.plugin
 
+import com.bigger.plugin.creation.ModuleCreateTask
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import org.gradle.api.Plugin
@@ -186,7 +187,7 @@ class XposedSubPlugin implements Plugin<Project> {
 //                task.dependsOn "addModuleToRemote", "addModuleInfoToConfig", "updateRemoteModulesConfig"
 //            }
 //        }
-
+        project.tasks.register("ModuleCreateTask", ModuleCreateTask)
         project.tasks.named("assemble").get().dependsOn "addModuleToRemote", "addModuleInfoToConfig", "updateRemoteModulesConfig"
 
         project.afterEvaluate {

@@ -1,7 +1,8 @@
+package com.bigger.plugin.creation
+
 import groovy.json.JsonSlurper
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.CopySpec
-import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
 import org.gradle.workers.WorkerConfiguration
 import org.gradle.workers.WorkerExecutor

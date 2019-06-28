@@ -1,6 +1,7 @@
 package com.bigger.hotxposed;
 
 import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageInfo;
 import android.util.Log;
 
 import org.json.JSONArray;
@@ -14,11 +15,13 @@ import java.util.Map;
 import dalvik.system.DexClassLoader;
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.IXposedHookZygoteInit;
+import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.XposedBridge;
+import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 public class Entry implements IXposedHookLoadPackage, IXposedHookZygoteInit {
     private static final String TAG = "RICHER_ENTRY";
-//    private static final String MODULE_CLASS_NAME = "com.bigger.qk.Main";
     private static final String MODULE_METHOD_NAME = "handleLoadPackage";
     private static final String MODULES_DIR = "/data/local/tmp/hook";
     private static Map<String, Module> modules = new HashMap<>();
@@ -26,13 +29,6 @@ public class Entry implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
     static {
         initModules();
-//        if (modules.isEmpty()) {
-//            Module module = new Module();
-//            module.setPackageName("com.jiuhuang.news");
-//            module.setApkName("imp.apk");
-//            module.setEntryClass("com.bigger.qk.Main");
-//            modules.put("com.jiuhuang.news", module);
-//        }
     }
 
     private static void initModules() {
@@ -73,6 +69,7 @@ public class Entry implements IXposedHookLoadPackage, IXposedHookZygoteInit {
 
     @Override
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) throws Throwable {
+        debuggable(lpparam);
 //        if (!isUserApp(lpparam)) {
 //            return;
 //        }
@@ -111,6 +108,34 @@ public class Entry implements IXposedHookLoadPackage, IXposedHookZygoteInit {
             method.invoke(null, lpparam);
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    private static void debuggable(XC_LoadPackage.LoadPackageParam loadPackageParam) {
+        if(loadPackageParam.packageName.equals("android")) {
+            XposedBridge.hookAllMethods(XposedHelpers.findClass("com.android.server.pm.PackageManagerService", loadPackageParam.classLoader),
+                    "getPackageInfo", new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                            super.beforeHookedMethod(param);
+                        }
+
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                            super.afterHookedMethod(param);
+                            Object result = param.getResult();
+                            if (result != null) {
+                                ApplicationInfo info = ((PackageInfo) result).applicationInfo;
+                                int flags = info.flags;
+                                if((flags & ApplicationInfo.FLAG_SYSTEM) == 0) {
+                                    flags |= 32768;
+                                    flags |= 2;
+                                    ((PackageInfo) result).applicationInfo.flags = flags;
+                                    param.setResult(result);
+                                }
+                            }
+                        }
+                    });
         }
     }
 
