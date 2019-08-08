@@ -1,0 +1,12 @@
+[
+    {
+        "moduleName": "langren",
+        "applicationId": "com.bigger.langren",
+        "packageName": "com.c2vl.kgamebox"
+    },
+    {
+        "moduleName": "fishing",
+        "applicationId": "com.bigger.fishing",
+        "packageName": "com.fishgame.deepseafishing"
+    }
+]
