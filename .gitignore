@@ -1,6 +1,6 @@
 .gradle
 *.iml
-/local.properties
+local.properties
 .idea/*
 .idea/vcs.xml
 .DS_Store
