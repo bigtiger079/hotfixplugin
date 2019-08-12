@@ -1,0 +1,2 @@
+com.bigger.ziroom
+string app_name

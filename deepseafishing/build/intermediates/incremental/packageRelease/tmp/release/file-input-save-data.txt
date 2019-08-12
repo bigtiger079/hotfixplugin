@@ -1,0 +1,7 @@
+#Internal package file, do not edit.
+#Sun Aug 11 15:02:55 CST 2019
+0.baseType=DIRECTORY
+0.base=E\:\\Workstation\\android\\hotfixplugin\\deepseafishing\\build\\intermediates\\dex\\release\\mergeDexRelease\\out
+0.path=classes.dex
+0.set=DEX
+count=1

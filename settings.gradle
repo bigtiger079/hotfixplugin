@@ -1,1 +1,3 @@
-include ':app', ':youtube'
+include ':app'
+include ':ziroom'
+include ':deepseafishing'
