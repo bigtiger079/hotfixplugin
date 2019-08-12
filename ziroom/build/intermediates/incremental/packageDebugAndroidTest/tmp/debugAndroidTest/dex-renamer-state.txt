@@ -1,4 +1,0 @@
-#Mon Aug 12 21:14:29 CST 2019
-base.0=E\:\\Workstation\\android\\hotfixplugin\\ziroom\\build\\intermediates\\dex\\debugAndroidTest\\mergeDexDebugAndroidTest\\out
-path.0=classes.dex
-renamed.0=classes.dex

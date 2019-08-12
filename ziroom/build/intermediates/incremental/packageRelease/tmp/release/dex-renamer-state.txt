@@ -1,4 +1,0 @@
-#Mon Aug 12 23:45:36 CST 2019
-base.0=E\:\\Workstation\\android\\hotfixplugin\\ziroom\\build\\intermediates\\dex\\release\\mergeDexRelease\\out
-path.0=classes.dex
-renamed.0=classes.dex
