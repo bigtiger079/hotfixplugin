@@ -11,7 +11,7 @@ import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 public class ModuleEntry {
-
+    private static final String TAG = "ZiRoomServerController";
     public static void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam) throws Throwable {
         Log.d("ZiRoomServerController", lpparam.processName+"");
         XposedHelpers.findAndHookMethod(Application.class, "attach", Context.class, new XC_MethodHook(){
@@ -29,6 +29,12 @@ public class ModuleEntry {
                 if (!lpparam.processName.contains(":")) {
                     Class ClientForAndroid = XposedHelpers.findClass("com.itrus.raapi.implement.ClientForAndroid", lpparam.classLoader);
                     Object getInstance = XposedHelpers.callStaticMethod(ClientForAndroid, "getInstance", arg);
+                    XposedHelpers.callMethod(getInstance, "SetSystemDBDir", "/data/user/0/com.ziroom.ziroomcustomer/files/db/");
+                    int setLicense = (int) XposedHelpers.callMethod(getInstance, "SetLicense", "2EC05742B9545BC7");
+                    Log.i(TAG, "setLicense: " + setLicense);
+                    int pinResult = (int) XposedHelpers.callMethod(getInstance, "VerifyUserPIN", "Android", "111", 5);
+                    Log.i(TAG, "pinResult: " + pinResult);
+
                     ZiRoomServerController.initServer(lpparam, getInstance);
 
                 }

@@ -5,7 +5,7 @@
         "packageName": "com.c2vl.kgamebox"
     },
     {
-        "moduleName": "fishing",
+        "moduleName": "deepseafishing",
         "applicationId": "com.bigger.fishing",
         "packageName": "com.fishgame.deepseafishing"
     }

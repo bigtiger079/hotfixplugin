@@ -1,7 +1,9 @@
 package com.bigger.ziroom.server;
 
+import android.text.TextUtils;
 import android.util.Log;
 
+import com.bigger.ziroom.CertInfo;
 import com.koushikdutta.async.AsyncServer;
 import com.koushikdutta.async.http.Multimap;
 import com.koushikdutta.async.http.body.AsyncHttpRequestBody;
@@ -13,7 +15,10 @@ import com.koushikdutta.async.http.server.HttpServerRequestCallback;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
@@ -42,22 +47,24 @@ public class ZiRoomServerController {
                             response.send(CONTENT_TYPE_JSON, buildJsonResponse("empty body", 2000));
                             return;
                         }
-                        //body.getContentType();
                         Log.i(TAG, body.getContentType());
                         Log.i(TAG, body.get().toString());
                         JSONObject requestData = new JSONObject(body.get().toString());
-                        Multimap query = request.getQuery();
-                        List<String> data = query.get("data");
-                        if (data==null || data.isEmpty()) {
-                            response.send(CONTENT_TYPE_JSON, buildJsonResponse("empty data", 2001));
-                            return;
-                        }
-                        //Class<?> aClass = XposedHelpers.findClass("", lpparam.classLoader);
-                        //String[] filterCert = (String[]) XposedHelpers.callMethod(clientObj, "FilterCert", "", "", "", 0, 0);
-                        String data1 = requestData.getJSONArray("data").get(0).toString();
-                        Log.d(TAG, "data: " + data1);
-                        //String json = data1;//"{\"end_date\":\"2020-08-21\",\"payment\":\"月付\",\"cert_type\":\"身份证\",\"start_date\":\"2019-08-22\",\"name\":\"季洪全\",\"uid\":\"3c5fda83-33ce-45fe-b9fd-1112dae58c0e\",\"house_code\":\"BJZRGY0819471826_01\",\"cert_num\":\"320924199105056138\"}";
-                        Object o = XposedHelpers.callMethod(clientObj, "SignMessage", data1, "0", "SHA1", 1);
+//                        Multimap query = request.getQuery();
+//                        List<String> data = query.get("data");
+//                        if (data==null || data.isEmpty()) {
+//                            response.send(CONTENT_TYPE_JSON, buildJsonResponse("empty data", 2001));
+//                            return;
+//                        }
+
+                        JSONObject jsonData = requestData.getJSONArray("data").getJSONObject(0);
+                        jsonData.put("cert_type", "身份证");
+                        jsonData.put("name", "季洪全");
+                        jsonData.put("payment", "月付");
+                        Log.d(TAG, "data before: " + jsonData.toString());
+                        JSONObject sort = sort(jsonData);
+                        Log.d(TAG, "data after: " + sort.toString());
+                        Object o = signMessage(sort.toString());
                         jsonObject.put("key", o.toString());
                         response.send(jsonObject);
                     } catch (Exception e) {
@@ -70,6 +77,24 @@ public class ZiRoomServerController {
             server.listen(mAsyncServer, 9988);
             isServerInit = true;
         }
+    }
+
+    private static JSONObject sort(JSONObject jsonObject){
+        Iterator<String> keys = jsonObject.keys();
+        HashMap<String, String> map = new HashMap<>();
+        while (keys.hasNext()) {
+            String next = keys.next();
+            map.put(next, jsonObject.optString(next));
+        }
+        JSONObject sortJson = new JSONObject();
+        for (Map.Entry<String, String> entry : map.entrySet()) {
+            try {
+                sortJson.put(entry.getKey(), entry.getValue());
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        }
+        return sortJson;
     }
 
     private static String buildJsonResponse(String message, int code) {
@@ -90,5 +115,30 @@ public class ZiRoomServerController {
         } catch (JSONException e) {
             return null;
         }
+    }
+
+    private static String signMessage(String message) {
+        String[] filterCert = (String[]) XposedHelpers.callMethod(clientObj, "FilterCert", "", "", "", 0, 0);
+        if (filterCert == null || filterCert.length == 0) {
+            return "";
+        }
+        Log.i(TAG, "filterCert: " + filterCert[0]);
+
+        Object getCertAttribute = XposedHelpers.callMethod(clientObj, "GetCertAttribute", filterCert[0]);
+        Log.i(TAG, "getCertAttribute: " + getCertAttribute.toString());
+        CertInfo convert = CertInfo.convert(getCertAttribute);
+        Log.i(TAG, "CertInfo: " + convert.toString());
+        int certExpireRemind = (int) XposedHelpers.callMethod(clientObj, "CertExpireRemind", "0");
+        Log.i(TAG, "certExpireRemind: " + certExpireRemind);
+
+
+        String o = (String) XposedHelpers.callMethod(clientObj, "SignMessage", message, filterCert[0], "SHA1", 1);
+        Log.i(TAG, "SignMessage: " + o);
+
+        if (TextUtils.isEmpty(o)) {
+            String lastError = (String) XposedHelpers.callMethod(clientObj, "GetLastErrInfo");
+            Log.e(TAG, "signErr: " + lastError);
+        }
+        return o;
     }
 }
