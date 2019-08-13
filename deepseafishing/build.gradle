@@ -1,0 +1,36 @@
+apply plugin: 'com.android.application'
+apply plugin: com.bigger.plugin.XposedSubPlugin
+
+android {
+    compileSdkVersion 28
+
+    defaultConfig {
+        applicationId "com.bigger.deepseafishing"
+        minSdkVersion 15
+        targetSdkVersion 28
+        versionCode 1
+        versionName "1.0"
+
+        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+}
+
+xposed {
+    packageName  "com.fishgame.deepseafishing"
+    entryClass "com.bigger.deepseafishing.ModuleEntry"
+    apkName "deepseafishing.apk"
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    compileOnly "de.robv.android.xposed:api:82"
+}

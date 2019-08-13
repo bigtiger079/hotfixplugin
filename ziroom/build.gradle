@@ -1,0 +1,37 @@
+apply plugin: 'com.android.application'
+apply plugin: com.bigger.plugin.XposedSubPlugin
+
+android {
+    compileSdkVersion 28
+
+    defaultConfig {
+        applicationId "com.bigger.ziroom"
+        minSdkVersion 15
+        targetSdkVersion 28
+        versionCode 1
+        versionName "1.0"
+
+        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+}
+
+xposed {
+    packageName  "com.ziroom.ziroomcustomer"
+    entryClass "com.bigger.ziroom.ModuleEntry"
+    apkName "ziroom.apk"
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    compileOnly "de.robv.android.xposed:api:82"
+    implementation 'com.koushikdutta.async:androidasync:2.+'
+}
