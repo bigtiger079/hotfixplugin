@@ -45,6 +45,7 @@ public class ZiRoomServerController {
                         //body.getContentType();
                         Log.i(TAG, body.getContentType());
                         Log.i(TAG, body.get().toString());
+                        JSONObject requestData = new JSONObject(body.get().toString());
                         Multimap query = request.getQuery();
                         List<String> data = query.get("data");
                         if (data==null || data.isEmpty()) {
@@ -52,10 +53,11 @@ public class ZiRoomServerController {
                             return;
                         }
                         //Class<?> aClass = XposedHelpers.findClass("", lpparam.classLoader);
-                        String[] filterCert = (String[]) XposedHelpers.callMethod(clientObj, "FilterCert", "", "", "", 0, 0);
-
-                        String json = "{\"end_date\":\"2020-08-21\",\"payment\":\"月付\",\"cert_type\":\"身份证\",\"start_date\":\"2019-08-22\",\"name\":\"季洪全\",\"uid\":\"3c5fda83-33ce-45fe-b9fd-1112dae58c0e\",\"house_code\":\"BJZRGY0819471826_01\",\"cert_num\":\"320924199105056138\"}";
-                        Object o = XposedHelpers.callMethod(clientObj, "SignMessage", json, "0", "SHA1", 1);
+                        //String[] filterCert = (String[]) XposedHelpers.callMethod(clientObj, "FilterCert", "", "", "", 0, 0);
+                        String data1 = requestData.getJSONArray("data").get(0).toString();
+                        Log.d(TAG, "data: " + data1);
+                        //String json = data1;//"{\"end_date\":\"2020-08-21\",\"payment\":\"月付\",\"cert_type\":\"身份证\",\"start_date\":\"2019-08-22\",\"name\":\"季洪全\",\"uid\":\"3c5fda83-33ce-45fe-b9fd-1112dae58c0e\",\"house_code\":\"BJZRGY0819471826_01\",\"cert_num\":\"320924199105056138\"}";
+                        Object o = XposedHelpers.callMethod(clientObj, "SignMessage", data1, "0", "SHA1", 1);
                         jsonObject.put("key", o.toString());
                         response.send(jsonObject);
                     } catch (Exception e) {
