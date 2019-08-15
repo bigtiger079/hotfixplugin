@@ -50,12 +50,6 @@ public class ZiRoomServerController {
                         Log.i(TAG, body.getContentType());
                         Log.i(TAG, body.get().toString());
                         JSONObject requestData = new JSONObject(body.get().toString());
-//                        Multimap query = request.getQuery();
-//                        List<String> data = query.get("data");
-//                        if (data==null || data.isEmpty()) {
-//                            response.send(CONTENT_TYPE_JSON, buildJsonResponse("empty data", 2001));
-//                            return;
-//                        }
 
                         JSONObject jsonData = requestData.getJSONArray("data").getJSONObject(0);
                         jsonData.put("cert_type", "身份证");
@@ -72,6 +66,12 @@ public class ZiRoomServerController {
                         Log.e(TAG, e.getMessage());
                         response.send(CONTENT_TYPE_JSON, buildJsonResponse(e.getMessage(), 3000));
                     }
+                }
+            });
+            server.get("/ziroom/check", new HttpServerRequestCallback() {
+                @Override
+                public void onRequest(AsyncHttpServerRequest request, AsyncHttpServerResponse response) {
+                    response.send(buildJsonResponse("success", 100));
                 }
             });
             server.listen(mAsyncServer, 9988);
